@@ -86,3 +86,54 @@ class BookApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Book.objects.count(), 0)
+
+
+class BookPermissionTests(APITestCase):
+
+    def setUp(self):
+        self.list_url = reverse("books:book-list")
+
+        self.book_data = {
+            "title": "The Hobbit",
+            "author": "J.R.R. Tolkien",
+            "cover": "HARD",
+            "inventory": 5,
+            "daily_fee": "2.99",
+        }
+        self.book = Book.objects.create(**self.book_data)
+        self.detail_url = reverse("books:book-detail", kwargs={"pk": self.book.id})
+
+        self.user = User.objects.create_user(
+            email="user@example.com", password="userpass123"
+        )
+
+    def test_anonymous_can_list_books(self):
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_anonymous_cannot_create_book(self):
+        response = self.client.post(self.list_url, self.book_data)
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_user_cannot_create_book(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(self.list_url, self.book_data)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_cannot_update_book(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(self.detail_url, {"inventory": 10})
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_cannot_delete_book(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.delete(self.detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
